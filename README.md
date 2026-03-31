@@ -1,119 +1,106 @@
 # Engineering-Thesis
-# TIL Texture Analysis via GLCM for Cancer Patient Survival Prediction
+# TIL Histopathological Image Texture Analysis Using GLCM and Harrell's Concordance Index
 
-MATLAB codebase for analyzing Tumor Infiltrating Lymphocyte (TIL) images using Gray-Level Co-occurrence Matrix (GLCM) texture analysis, combined with clinical survival data from TCGA.
+Source code for an engineering thesis — MATLAB.
 
----
-
-## Project Overview
-
-The goal of this project is to evaluate the prognostic value of a structural texture metric (`struct_ness`) derived from TIL images. For each combination of preprocessing and GLCM parameters, the following statistics are computed:
-
-- **Harrell's C-index** — concordance measure between predicted scores and actual survival times,
-- **Hazard Ratio** (HR) and its logarithm,
-- **P-value** from the Cox proportional hazards model,
-- **Confidence intervals** for HR (in both linear and log scale).
-
-Results for each analyzed cancer type are saved to an `.xlsx` file.
-
----
-
-## Repository Structure
-
-```
-DaneTestowe/
-├── Kod/
-│   ├── Main.m              # Entry point — path configuration and analysis launcher
-│   ├── GLCM.m              # Iterates over all parameter combinations, aggregates results
-│   ├── Process.m           # Image preprocessing and GLCM computation
-│   ├── Analiza.m           # Survival analysis (Cox PH, C-index, HR, p-value)
-│   └── concordanceIndex.m  # Harrell's C-index computation
-└── Test data/
-    ├── TCGA-CDR-SupplementalTableS1.xlsx   # Patient clinical data (TCGA)
-    └── Zdjęcia testowe/                    # TIL images in PNG format (TCGA)
-```
+This project performs texture analysis of Tumor Infiltrating Lymphocyte (TIL) histopathological images sourced from the TCGA (*The Cancer Genome Atlas*) database. Texture features are extracted using the Gray-Level Co-occurrence Matrix (GLCM) method and combined with patient clinical data in a Cox proportional hazards model. Survival prediction quality is evaluated using Harrell's concordance index (C-index).
 
 ---
 
 ## Requirements
 
-- **MATLAB** (tested on R2021a or newer)
-- **Image Processing Toolbox** — `graycomatrix`, `imgaussfilt`, `imopen`, `imclose`, `medfilt2`, `colfilt`
-- **Statistics and Machine Learning Toolbox** — `coxphfit`
+- **MATLAB** (R2020b or newer recommended)
+- Toolboxes:
+  - Image Processing Toolbox (`graycomatrix`, `imgaussfilt`, `medfilt2`, etc.)
+  - Statistics and Machine Learning Toolbox (`coxphfit`)
 
 ---
 
-## Getting Started
+## Project Structure
+
+```
+DaneTestowe/
+├── Kod/
+│   ├── Main.m              # Main script that runs the analysis
+│   ├── GLCM.m              # Iterates over parameter combinations, calls Process
+│   ├── Process.m           # Image preprocessing and GLCM feature extraction
+│   ├── Analiza.m           # Cox model, hazard ratio, C-index computation
+│   └── concordanceIndex.m  # Harrell's concordance index implementation
+└── Test data/
+    ├── TCGA-CDR-SupplementalTableS1.xlsx   # Patient clinical data (TCGA)
+    └── Zdjęcia testowe/                    # TIL images in .png format (TCGA)
+```
+
+---
+
+## Usage
 
 1. Open `Main.m` in MATLAB.
-2. Set the path to the folder containing TIL images:
-   ```matlab
-   path_to_TIL_folder = 'C:\path\to\images\folder\';
-   ```
-3. Set the path to the Excel file with clinical data:
-   ```matlab
-   path_to_excel = 'TCGA-CDR-SupplementalTableS1.xlsx';
-   ```
-4. Set the output folder for results:
-   ```matlab
-   save_results_to = 'C:\path\to\results\folder\';
-   ```
-5. In the `typelist` variable, specify the subfolder names corresponding to cancer types:
-   ```matlab
-   typelist = {'CancerTypeName'};
-   ```
-6. Run the script — results will be saved as `Harrells_c_index_data_<type>.xlsx`.
+2. Set the paths at the top of the script:
+
+```matlab
+% Path to the folder containing TIL images (must end with '\')
+path_to_TIL_folder = 'C:\...\DaneTestowe\Test data\';
+
+% Path to the Excel file with clinical data
+path_to_excel = 'TCGA-CDR-SupplementalTableS1.xlsx';
+
+% Output folder for results (must end with '\')
+save_results_to = 'C:\...\DaneTestowe\';
+```
+
+3. Run the script. Results will be saved to an Excel file (`Harrells_c_index_data_<type>.xlsx`) in the specified output folder.
+
+> Note: The analysis covers a large number of parameter combinations and may take tens of minutes to complete.
 
 ---
 
-## Analysis Parameters
+## Method Description
 
-The code automatically tests all combinations of the following parameters:
+### Image Preprocessing (`Process.m`)
 
-| Parameter         | Values                                                    | Description                                        |
-|-------------------|-----------------------------------------------------------|----------------------------------------------------|
-| `NLvl`            | 2, 4, 6, 8                                                | Number of gray-level quantization levels in GLCM   |
-| `NBack`           | `'n'`, `'y'`                                              | Background removal (white pixels = 255)            |
-| `blurFilterType`  | `'n'`, `'average'`, `'gaussian'`, `'median'`, `'geomean'` | Blur filter type applied before GLCM               |
-| `imgcut`          | `'n'`, `'y'`                                              | Split image into 4 quadrants before computing GLCM |
-| `open_close`      | `'n'`, `'close'`, `'open'`                                | Morphological opening / closing operation          |
-| `a`               | 3, 5, 7                                                   | Window size for the average filter                 |
-| `s`               | 1, 2, 3                                                   | Standard deviation for the Gaussian filter         |
+The following steps are applied optionally to each TIL image:
 
----
+- **Morphological filtering** — opening (`open`) or closing (`close`) operations on the background mask
+- **Smoothing** — Gaussian, average, median, or geometric mean filter
+- **Background removal** — white pixels (255, 255, 255) are treated as background and excluded
+- **Image splitting** — optional division into 4 quadrants before GLCM computation
 
-## Input Data Format
+The GLCM is computed across 4 directions (0°, 45°, 90°, 135°), from which texture measures (M1/M2) are derived.
 
-**TIL images** (`*.png`):
-- Grayscale or RGB images — only the red channel (`img(:,:,1)`) is used.
-- Filenames must start with the 12-character TCGA patient barcode (e.g. `TCGA-V4-A9E5`).
-- White pixels (value 255 in all channels) are treated as background.
+### Survival Analysis (`Analiza.m`)
 
-**Clinical data** (`TCGA-CDR-SupplementalTableS1.xlsx`):
-- Downloaded from the TCGA Clinical Data Resource (CDR).
-- Required columns: `bcr_patient_barcode`, `age_at_initial_pathologic_diagnosis`, `OS`, `OS_time`, `DSS`, `DSS_time`, `DFI`, `DFI_time`, `PFI`, `PFI_time`, `vital_status`, `race`, `ajcc_pathologic_tumor_stage`.
+Extracted texture features are combined with patient age and fed into a Cox proportional hazards model (`coxphfit`). The following statistics are computed:
 
----
+- **Harrell's C-index** (and its negation for inverse correlation)
+- **Hazard ratio** (HR and log-HR)
+- **95% confidence intervals** (in linear and logarithmic scale)
+- **p-values**
 
-## Output Format
+### Parameter Grid (`GLCM.m`)
 
-For each cancer type, the script produces `Harrells_c_index_data_<type>.xlsx` with the following columns:
+The analysis iterates over the following parameter combinations:
 
-| Column                              | Description                                          |
-|-------------------------------------|------------------------------------------------------|
-| `Description`                       | Parameter combination label                          |
-| `Harrells_c_index`                  | Harrell's C-index                                    |
-| `Negatywny_Harrells_c_index`        | C-index for the negated predictor sign               |
-| `P_values`                          | P-value from the Cox model                           |
-| `Hazard_ratio`                      | Hazard ratio (HR)                                    |
-| `Hazard_ratio_in_logarithm`         | Log hazard ratio                                     |
-| `Confidence_intervals`              | 95% confidence intervals for HR                      |
-| `Confidence_intervals_in_logarithm` | 95% confidence intervals for log(HR)                 |
+| Parameter | Values |
+|---|---|
+| Gray levels (`NLvl`) | 2, 4, 6, 8 |
+| Background removal (`NBack`) | n, y |
+| Smoothing filter (`blurFilterType`) | none, average, gaussian, median, geomean |
+| Image splitting (`imgcut`) | n, y |
+| Morphological filter (`open_close`) | none, close, open |
+| Gaussian sigma (`s`) | 1, 2, 3 |
+| Average filter window size (`a`) | 3, 5, 7 |
 
 ---
 
-## Data Source
+## Data
 
-Clinical data and histopathological images are sourced from **The Cancer Genome Atlas (TCGA)**:
-- Clinical data: [TCGA Clinical Data Resource (CDR)](https://www.cell.com/cell/fulltext/S0092-8674(18)31033-3)
-- TIL images: generated using TIL detection tools applied to TCGA whole-slide histopathology images
+TIL images and clinical data are sourced from the [TCGA](https://www.cancer.gov/ccg/research/genome-sequencing/tcga) project. The file `TCGA-CDR-SupplementalTableS1.xlsx` contains patient survival endpoints (OS, DSS, DFI, PFI).
+
+Image filenames follow the TCGA naming convention — the first 12 characters correspond to the patient barcode, enabling automatic matching of images to clinical records.
+
+---
+
+## Author
+
+Jakub Białas
