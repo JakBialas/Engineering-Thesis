@@ -1,5 +1,5 @@
 # Engineering-Thesis
-# TIL Histopathological Image Texture Analysis Using GLCM and Harrell's Concordance Index
+# Modification and extension of algorithms for the estimation of spatial heterogeneity of lymphocyte maps in cancer prognosis
 
 Source code for an engineering thesis — MATLAB.
 
